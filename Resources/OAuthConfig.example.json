@@ -1,0 +1,8 @@
+{
+  "clientID": "YOUR_GOOGLE_DESKTOP_CLIENT_ID.apps.googleusercontent.com",
+  "scopes": [
+    "openid",
+    "email",
+    "https://www.googleapis.com/auth/spreadsheets"
+  ]
+}
