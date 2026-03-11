@@ -1,19 +1,21 @@
 # CSV to Sheets for macOS
 
-Minimal open-source macOS utility: open a local CSV file and send it to a new Google Sheet.
+Turn any local CSV into a live Google Sheet with one Finder action.
+
+Double-click a `.csv` file -> authenticate with Google (once) -> sheet is created -> rows are uploaded -> browser opens the result.
 
 ## Why this exists
 
-Manual CSV import into Google Sheets is repetitive. This app makes the common flow one action from Finder.
+If you import CSVs often, the normal Sheets flow gets old fast. This app is a tiny macOS utility that makes import effectively zero-friction.
 
-## Features
+## What it does
 
-- Open `.csv` files from macOS
-- Google OAuth sign-in (desktop app flow)
-- Create a new Google Sheet
-- Upload CSV rows
-- Open resulting sheet URL in browser
-- Local-first behavior (no vendor backend)
+- Handles `.csv` directly from Finder (`Open With` / default app)
+- Uses Google OAuth desktop flow with token persistence in Keychain
+- Creates a brand-new spreadsheet for each import
+- Uploads rows in batches to keep large imports reliable
+- Opens the created Google Sheet automatically
+- Runs local-first (no vendor backend)
 
 ## Scope
 
@@ -46,40 +48,52 @@ Implemented app stack:
 - `Sources/Models/` - shared app models and typed errors
 - `Resources/` - local config templates (OAuth)
 
-## Run
+## Quick Start (recommended)
 
-1. Install Xcode (or full macOS developer toolchain).
+This path builds and installs a proper `.app` bundle in `/Applications` and registers it with macOS for Finder file-open flow.
+
+1. Install Xcode (full, not just Command Line Tools).
 2. Clone this repo.
-3. Configure OAuth (below).
-4. Build:
+3. Follow [Docs/OAUTH_SETUP.md](Docs/OAUTH_SETUP.md) to create a Google OAuth credential and populate `Resources/OAuthConfig.json`.
+4. Run:
 
 ```bash
-swift build
+./make_app.sh
 ```
 
-5. Run:
+5. Right-click any `.csv` in Finder → **Get Info** → **Open with** → select **CSV to Sheets** → **Change All**.
 
-```bash
-swift run
-```
+From now on, double-clicking a CSV imports it straight to a new Google Sheet.
 
-## Google API setup
+Use `./make_app.sh --release` for a faster production binary.
 
+## Google OAuth setup
+
+Full instructions with screenshots-equivalent step-by-step: [Docs/OAUTH_SETUP.md](Docs/OAUTH_SETUP.md).
+
+Short version:
 1. Create a Google Cloud project.
 2. Enable the Google Sheets API.
-3. Create OAuth credentials for a **Desktop app**.
-4. Copy the template:
+3. Create an **OAuth client ID** with type **Desktop app**.
+4. Copy the client ID into `Resources/OAuthConfig.json`.
+5. Re-run `./make_app.sh`.
+
+## Development (local run)
+
+For quick iteration without installing:
 
 ```bash
 cp Resources/OAuthConfig.example.json Resources/OAuthConfig.json
+# edit OAuthConfig.json with your real clientID
+swift build
+swift run
 ```
 
-5. Update `Resources/OAuthConfig.json` with your Desktop OAuth `clientID`.
-6. Launch the app and click **Sign In**.
+`swift run` is for dev iteration only. It does not register Finder file associations. Use `./make_app.sh` for real app behavior.
 
-## Privacy and security
+## Privacy + Security
 
-- CSV data is processed locally, then uploaded only to Google APIs for import.
+- CSV data is parsed locally and sent only to Google APIs you authorize.
 - No proprietary backend services.
 - OAuth tokens stored in macOS Keychain.
 - No tracking/analytics by default.

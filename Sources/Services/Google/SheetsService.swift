@@ -44,15 +44,18 @@ final class SheetsService {
     ) async throws {
         guard !rows.isEmpty else { throw AppError.emptyFile }
         var uploaded = 0
+        var nextRow = 1
         for start in stride(from: 0, to: rows.count, by: batchSize) {
             let end = min(start + batchSize, rows.count)
             let batch = Array(rows[start..<end])
             do {
-                try await appendBatch(
+                try await writeBatch(
                     spreadsheetID: spreadsheetID,
                     rows: batch,
+                    startRow: nextRow,
                     accessToken: accessToken
                 )
+                nextRow += batch.count
                 uploaded += batch.count
                 onBatchUploaded?(uploaded)
             } catch let error as AppError {
@@ -63,15 +66,24 @@ final class SheetsService {
         }
     }
 
-    private func appendBatch(spreadsheetID: String, rows: [[String]], accessToken: String) async throws {
-        guard let url = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(spreadsheetID)/values/A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS") else {
-            throw AppError.network("Unable to build Sheets append URL.")
+    private func writeBatch(
+        spreadsheetID: String,
+        rows: [[String]],
+        startRow: Int,
+        accessToken: String
+    ) async throws {
+        guard let url = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(spreadsheetID)/values:batchUpdate") else {
+            throw AppError.network("Unable to build Sheets batchUpdate URL.")
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(AppendValuesRequest(values: rows))
+
+        let range = "Sheet1!A\(startRow)"
+        let valueRange = ValueRange(range: range, majorDimension: "ROWS", values: rows)
+        let body = BatchUpdateValuesRequest(valueInputOption: "RAW", data: [valueRange])
+        request.httpBody = try JSONEncoder().encode(body)
 
         let (data, response) = try await session.data(for: request)
         let http = try validateHTTP(response: response, data: data)
@@ -124,8 +136,13 @@ private struct CreateSpreadsheetResponse: Decodable {
     }
 }
 
-private struct AppendValuesRequest: Encodable {
+private struct ValueRange: Encodable {
+    let range: String
+    let majorDimension: String
     let values: [[String]]
-    let majorDimension = "ROWS"
-    let range = "A1"
+}
+
+private struct BatchUpdateValuesRequest: Encodable {
+    let valueInputOption: String
+    let data: [ValueRange]
 }

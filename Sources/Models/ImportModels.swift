@@ -31,7 +31,7 @@ struct ImportRequest {
     let customTitle: String?
 }
 
-struct ImportResult {
+struct ImportResult: Equatable {
     let spreadsheetID: String
     let spreadsheetURL: URL
     let rowsUploaded: Int

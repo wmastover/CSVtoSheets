@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.csvtosheets.app</string>
+
+    <key>CFBundleName</key>
+    <string>CSV to Sheets</string>
+
+    <key>CFBundleDisplayName</key>
+    <string>CSV to Sheets</string>
+
+    <key>CFBundleExecutable</key>
+    <string>CSVtoSheets</string>
+
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <key>CFBundleSignature</key>
+    <string>????</string>
+
+    <key>CFBundleVersion</key>
+    <string>1</string>
+
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+
+    <key>NSHighResolutionCapable</key>
+    <true/>
+
+    <!-- Run as a background agent — no Dock icon, no App Switcher entry.
+         The MenuBarExtra provides the only user-visible surface. -->
+    <key>LSUIElement</key>
+    <true/>
+
+    <!-- Declare CSV as a handled document type, with Owner rank so macOS
+         offers this app as the default opener. -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>CSV File</string>
+
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+
+            <key>LSHandlerRank</key>
+            <string>Owner</string>
+
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.comma-separated-values-text</string>
+                <string>public.delimited-values-text</string>
+                <string>public.text</string>
+            </array>
+
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>csv</string>
+            </array>
+
+            <key>CFBundleTypeMIMETypes</key>
+            <array>
+                <string>text/csv</string>
+                <string>text/plain</string>
+            </array>
+        </dict>
+    </array>
+
+    <!-- Declare the UTI we can open so Finder shows us in Open With. -->
+    <key>UTImportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>public.comma-separated-values-text</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>public.text</string>
+            </array>
+            <key>UTTypeDescription</key>
+            <string>CSV File</string>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array>
+                    <string>csv</string>
+                </array>
+                <key>public.mime-type</key>
+                <string>text/csv</string>
+            </dict>
+        </dict>
+    </array>
+</dict>
+</plist>

@@ -15,7 +15,7 @@ final class ImportCoordinator {
     func runImport(
         request: ImportRequest,
         autoOpenBrowser: Bool,
-        progress: @escaping @Sendable (Double, String) async -> Void
+        progress: @escaping (Double, String) async -> Void
     ) async throws -> ImportResult {
         let start = Date()
         await progress(0.02, "Authenticating with Google")

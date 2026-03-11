@@ -10,11 +10,15 @@ struct CSVParser {
     }
 
     func parse(text: String, delimiter: Character = ",") throws -> [[String]] {
+        let normalizedText = text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+
         var rows: [[String]] = []
         var row: [String] = []
         var field = ""
         var inQuotes = false
-        var iterator = text.makeIterator()
+        var iterator = normalizedText.makeIterator()
 
         while let char = iterator.next() {
             if inQuotes {
@@ -32,12 +36,6 @@ struct CSVParser {
                                 rows.append(row)
                                 row = []
                                 field = ""
-                            } else if next == "\r" {
-                                row.append(field)
-                                rows.append(row)
-                                row = []
-                                field = ""
-                                _ = iterator.next()
                             } else {
                                 field.append(next)
                             }
@@ -64,12 +62,6 @@ struct CSVParser {
                     rows.append(row)
                     row = []
                     field = ""
-                case "\r":
-                    row.append(field)
-                    rows.append(row)
-                    row = []
-                    field = ""
-                    _ = iterator.next()
                 default:
                     field.append(char)
                 }

@@ -1,5 +1,6 @@
 {
   "clientID": "YOUR_GOOGLE_DESKTOP_CLIENT_ID.apps.googleusercontent.com",
+  "clientSecret": "YOUR_GOOGLE_DESKTOP_CLIENT_SECRET",
   "scopes": [
     "openid",
     "email",

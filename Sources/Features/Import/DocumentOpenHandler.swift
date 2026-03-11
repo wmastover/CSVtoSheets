@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 struct DocumentOpenHandler {
     func handle(paths: [String], appState: AppState, settingsStore: SettingsStore) {
         for path in paths {

@@ -5,6 +5,7 @@ import Network
 
 struct OAuthConfig: Decodable {
     let clientID: String
+    let clientSecret: String
     let scopes: [String]
 }
 
@@ -20,10 +21,20 @@ final class AuthManager {
     }
 
     static func loadConfig() throws -> OAuthConfig {
-        let path = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent("Resources/OAuthConfig.json")
-        guard FileManager.default.fileExists(atPath: path.path) else {
-            throw AppError.auth("Missing Resources/OAuthConfig.json. Copy Resources/OAuthConfig.example.json and set clientID.")
+        // When running as a bundled .app, the config lives in Contents/Resources.
+        // When running via `swift run` (development), fall back to the repo's Resources/ folder.
+        let candidates: [URL] = [
+            Bundle.main.url(forResource: "OAuthConfig", withExtension: "json"),
+            URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+                .appendingPathComponent("Resources/OAuthConfig.json")
+        ].compactMap { $0 }
+
+        guard let path = candidates.first(where: { FileManager.default.fileExists(atPath: $0.path) }) else {
+            throw AppError.auth(
+                "OAuthConfig.json not found. " +
+                "See Docs/OAUTH_SETUP.md — create a Google Desktop OAuth client and " +
+                "copy its client ID into Resources/OAuthConfig.json, then re-run make_app.sh."
+            )
         }
         let data = try Data(contentsOf: path)
         return try JSONDecoder().decode(OAuthConfig.self, from: data)
@@ -34,13 +45,17 @@ final class AuthManager {
     }
 
     func restoreToken() async throws -> OAuthToken? {
-        guard let token = try tokenStore.load() else { return nil }
-        if token.expiresAt > Date().addingTimeInterval(60) {
-            return token
+        do {
+            guard let token = try tokenStore.load() else { return nil }
+            if token.expiresAt > Date().addingTimeInterval(60) {
+                return token
+            }
+            guard token.refreshToken != nil else { return nil }
+            let refreshed = try await refreshToken()
+            return refreshed
+        } catch {
+            throw normalizeAuthError(error)
         }
-        guard token.refreshToken != nil else { return nil }
-        let refreshed = try await refreshToken()
-        return refreshed
     }
 
     func signIn() async throws -> OAuthToken {
@@ -85,11 +100,15 @@ final class AuthManager {
     }
 
     func validAccessToken() async throws -> String {
-        if let token = try await restoreToken() {
+        do {
+            if let token = try await restoreToken() {
+                return token.accessToken
+            }
+            let token = try await signIn()
             return token.accessToken
+        } catch {
+            throw normalizeAuthError(error)
         }
-        let token = try await signIn()
-        return token.accessToken
     }
 
     func fetchAccountEmail(accessToken: String) async -> String? {
@@ -119,6 +138,7 @@ final class AuthManager {
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = formEncoded([
             "client_id": config.clientID,
+            "client_secret": config.clientSecret,
             "grant_type": "refresh_token",
             "refresh_token": refresh
         ])
@@ -128,7 +148,12 @@ final class AuthManager {
             throw AppError.auth("Invalid token refresh response.")
         }
         if http.statusCode != 200 {
-            throw AppError.auth("Google token refresh failed (\(http.statusCode)).")
+            let body = String(data: data, encoding: .utf8) ?? "unknown error"
+            if http.statusCode == 400, body.contains("invalid_grant") {
+                try? tokenStore.clear()
+                throw AppError.auth("Saved Google session expired. Please sign in again in the browser.")
+            }
+            throw AppError.auth("Google token refresh failed (\(http.statusCode)): \(body)")
         }
         let refreshed = try JSONDecoder().decode(TokenResponse.self, from: data)
         let token = OAuthToken(
@@ -140,6 +165,19 @@ final class AuthManager {
         )
         try tokenStore.save(token: token)
         return token
+    }
+
+    private func normalizeAuthError(_ error: Error) -> Error {
+        guard let appError = error as? AppError else { return error }
+        guard case let .auth(message) = appError else { return error }
+
+        if message.contains("Keychain") {
+            return AppError.auth(
+                "Could not access your Keychain token. Unlock Keychain Access and choose Always Allow for CSV to Sheets."
+            )
+        }
+
+        return error
     }
 
     private func exchangeCodeForToken(
@@ -155,6 +193,7 @@ final class AuthManager {
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = formEncoded([
             "client_id": config.clientID,
+            "client_secret": config.clientSecret,
             "code": code,
             "grant_type": "authorization_code",
             "redirect_uri": redirectURI,
