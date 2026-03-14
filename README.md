@@ -1,8 +1,8 @@
 # CSV to Sheets for macOS 🚀
 
-Turn any local CSV into a live Google Sheet with one Finder action.
+Turn any local CSV or Excel file into a live Google Sheet with one Finder action.
 
-Double-click a `.csv` file -> authenticate with Google (once) -> sheet is created -> rows are uploaded -> browser opens the result. Easy win. ✅
+Double-click a `.csv` or `.xlsx` file -> authenticate with Google (once) -> sheet is created -> rows are uploaded -> browser opens the result. Easy win. ✅
 
 ## Why this exists 🤔
 
@@ -10,18 +10,18 @@ If you import CSVs often, the normal Sheets flow gets old fast. This app is a ti
 
 ## What it does ✨
 
-- Handles `.csv` directly from Finder (`Open With` / default app) 📂
+- Handles `.csv` and `.xlsx` directly from Finder (`Open With` / default app) 📂
 - Uses Google OAuth desktop flow with token persistence in Keychain 🔐
 - Creates a brand-new spreadsheet for each import 🆕
 - Uploads rows in batches to keep large imports reliable 📈
 - Opens the created Google Sheet automatically 🌐
-- Runs local-first (no vendor backend) 🏡
+- Runs local-first (no vendor backend, no dependencies) 🏡
 
 ## Scope 🎯
 
 Current target is intentionally narrow:
 
-- CSV-only first (`.csv`)
+- `.csv` and `.xlsx` (first sheet, no legacy `.xls`)
 - no trial/licensing/purchase restore
 - no analytics by default
 - no anti-abuse logic
@@ -44,7 +44,7 @@ Implemented app stack:
 - `Sources/Features/Auth/` - OAuth flow and Keychain token store
 - `Sources/Features/Import/` - file-open handling and import orchestration
 - `Sources/Services/Google/` - Google Sheets API adapter
-- `Sources/Services/Parsing/` - CSV parser
+- `Sources/Services/Parsing/` - CSV and XLSX parsers
 - `Sources/Models/` - shared app models and typed errors
 - `Resources/` - local config templates (OAuth)
 
@@ -61,9 +61,9 @@ This path builds and installs a proper `.app` bundle in `/Applications` and regi
 ./make_app.sh
 ```
 
-5. Right-click any `.csv` in Finder → **Get Info** → **Open with** → select **CSV to Sheets** → **Change All**.
+5. Right-click any `.csv` in Finder → **Get Info** → **Open with** → select **CSV to Sheets** → **Change All**. Repeat for `.xlsx` if you want it as the default there too.
 
-From now on, double-clicking a CSV imports it straight to a new Google Sheet. 🎉
+From now on, double-clicking a CSV or Excel file imports it straight to a new Google Sheet. 🎉
 
 Use `./make_app.sh --release` for a faster production binary.
 
@@ -101,11 +101,12 @@ swift run
 ## Roadmap 🗺️
 
 - v0.1: CSV open -> OAuth -> create new sheet -> upload -> open browser ✅
-- v0.2: drag-and-drop, delimiter auto-detect, better progress/errors
-- v0.3: `.xlsx`, title/account selection
+- v0.2: `.xlsx` import (first sheet), drag-and-drop, delimiter auto-detect ✅
+- v0.3: multi-sheet selection, title/account selection, better progress/errors
 
-## MVP status (v0.1) ✅
+## Status ✅
 
+**v0.1 — CSV import**
 - Sign in/out with Google OAuth desktop flow
 - Access/refresh token persistence in macOS Keychain
 - Open `.csv` from app UI and from file-open events
@@ -114,6 +115,12 @@ swift run
 - Open resulting sheet URL in browser
 - Basic settings: auto-open browser toggle, delimiter override
 - Typed error mapping for auth/parsing/network/rate-limit/partial upload
+
+**v0.2 — Excel import**
+- `.xlsx` support via zero-dependency parser (`/usr/bin/unzip` + `Foundation.XMLParser`)
+- Handles shared strings, inline strings, numerics, booleans, formula results, rich text, and sparse rows
+- File picker and Finder `Open With` both accept `.xlsx`
+- 36 automated tests covering all cell types, edge cases, parser routing, and file-type filtering
 
 ## Contributing 🤝
 
