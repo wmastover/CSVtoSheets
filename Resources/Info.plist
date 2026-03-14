@@ -40,8 +40,9 @@
     <key>LSUIElement</key>
     <true/>
 
-    <!-- Declare CSV as a handled document type, with Owner rank so macOS
-         offers this app as the default opener. -->
+    <!-- Declare CSV and Excel as handled document types. CSV is Owner rank
+         so macOS offers this app as the default opener; Excel is Alternate
+         since Numbers/Excel are the natural owners. -->
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
@@ -72,9 +73,34 @@
                 <string>text/plain</string>
             </array>
         </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Excel Spreadsheet</string>
+
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>org.openxmlformats.spreadsheetml.sheet</string>
+            </array>
+
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>xlsx</string>
+            </array>
+
+            <key>CFBundleTypeMIMETypes</key>
+            <array>
+                <string>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</string>
+            </array>
+        </dict>
     </array>
 
-    <!-- Declare the UTI we can open so Finder shows us in Open With. -->
+    <!-- Declare the UTIs we can open so Finder shows us in Open With. -->
     <key>UTImportedTypeDeclarations</key>
     <array>
         <dict>
@@ -94,6 +120,26 @@
                 </array>
                 <key>public.mime-type</key>
                 <string>text/csv</string>
+            </dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>org.openxmlformats.spreadsheetml.sheet</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>public.data</string>
+                <string>public.zip-archive</string>
+            </array>
+            <key>UTTypeDescription</key>
+            <string>Excel Spreadsheet</string>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array>
+                    <string>xlsx</string>
+                </array>
+                <key>public.mime-type</key>
+                <string>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</string>
             </dict>
         </dict>
     </array>

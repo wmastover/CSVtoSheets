@@ -12,8 +12,39 @@ final class AppState: ObservableObject {
     @Published private(set) var debugEvents: [String] = []
 
     private var authManager: AuthManager?
-    private var importCoordinator: ImportCoordinator?
+    private var importCoordinator: ImportCoordinating?
     private var notificationAuthorizationRequested = false
+    private let terminateApp: () -> Void
+    private let notificationPoster: (String, String) -> Void
+    private let shouldPostNotifications: () -> Bool
+    private let terminationDelayNanoseconds: UInt64
+
+    init(
+        authManager: AuthManager? = nil,
+        importCoordinator: ImportCoordinating? = nil,
+        terminateApp: (() -> Void)? = nil,
+        shouldPostNotifications: @escaping () -> Bool = { Bundle.main.bundleURL.pathExtension == "app" },
+        terminationDelayNanoseconds: UInt64 = 900_000_000,
+        notificationPoster: @escaping (String, String) -> Void = { title, body in
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+            let request = UNNotificationRequest(
+                identifier: UUID().uuidString,
+                content: content,
+                trigger: nil
+            )
+            UNUserNotificationCenter.current().add(request)
+        }
+    ) {
+        self.authManager = authManager
+        self.importCoordinator = importCoordinator
+        self.terminateApp = terminateApp ?? { NSApp.terminate(nil) }
+        self.shouldPostNotifications = shouldPostNotifications
+        self.terminationDelayNanoseconds = terminationDelayNanoseconds
+        self.notificationPoster = notificationPoster
+    }
 
     func bootstrap(settingsStore: SettingsStore) async {
         await requestNotificationAuthorizationIfNeeded()
@@ -56,9 +87,9 @@ final class AppState: ObservableObject {
         }
     }
 
-    func openCSVFile(_ url: URL, settings: SettingsStore) {
+    func openFile(_ url: URL, settings: SettingsStore) {
         lastOpenedFile = url
-        appendDebugEvent("Opened CSV: \(url.lastPathComponent)")
+        appendDebugEvent("Opened file: \(url.lastPathComponent)")
         Task {
             await importCSV(url, settings: settings, terminateWhenFinished: true)
         }
@@ -71,18 +102,22 @@ final class AppState: ObservableObject {
     func importFromFilePicker(settings: SettingsStore) {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = [.commaSeparatedText]
+        var contentTypes: [UTType] = [.commaSeparatedText]
+        if let xlsxType = UTType("org.openxmlformats.spreadsheetml.sheet") {
+            contentTypes.append(xlsxType)
+        }
+        panel.allowedContentTypes = contentTypes
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         if panel.runModal() == .OK, let url = panel.url {
-            appendDebugEvent("Selected CSV from picker: \(url.lastPathComponent)")
+            appendDebugEvent("Selected file from picker: \(url.lastPathComponent)")
             Task {
                 await importCSV(url, settings: settings, terminateWhenFinished: false)
             }
         }
     }
 
-    private func importCSV(_ url: URL, settings: SettingsStore, terminateWhenFinished: Bool) async {
+    func importCSV(_ url: URL, settings: SettingsStore, terminateWhenFinished: Bool) async {
         guard let importCoordinator else { return }
         appendDebugEvent("Starting import")
         do {
@@ -110,7 +145,7 @@ final class AppState: ObservableObject {
             appendDebugEvent("Import failed: \(error.localizedDescription)")
             postUserNotification(title: "CSV import failed", body: error.localizedDescription)
         }
-        if terminateWhenFinished {
+        if terminateWhenFinished, case .success = importStatus {
             terminateAfterImport()
         }
     }
@@ -124,18 +159,8 @@ final class AppState: ObservableObject {
     }
 
     private func postUserNotification(title: String, body: String) {
-        guard Bundle.main.bundleURL.pathExtension == "app" else { return }
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-        content.sound = .default
-
-        let request = UNNotificationRequest(
-            identifier: UUID().uuidString,
-            content: content,
-            trigger: nil
-        )
-        UNUserNotificationCenter.current().add(request)
+        guard shouldPostNotifications() else { return }
+        notificationPoster(title, body)
     }
 
     private func appendDebugEvent(_ message: String) {
@@ -151,8 +176,8 @@ final class AppState: ObservableObject {
     private func terminateAfterImport() {
         Task { @MainActor in
             // Give browser launch / notification dispatch a brief moment.
-            try? await Task.sleep(nanoseconds: 900_000_000)
-            NSApp.terminate(nil)
+            try? await Task.sleep(nanoseconds: terminationDelayNanoseconds)
+            terminateApp()
         }
     }
 

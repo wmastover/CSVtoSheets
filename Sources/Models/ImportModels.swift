@@ -13,13 +13,13 @@ enum AppError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .auth(let message): return "Authentication failed: \(message)"
-        case .parsing(let message): return "CSV parsing error: \(message)"
+        case .parsing(let message): return "Parsing error: \(message)"
         case .network(let message): return "Network error: \(message)"
         case .rateLimit(let message): return "Rate limited by Google API: \(message)"
-        case .unsupportedEncoding: return "Unsupported file encoding. Please use UTF-8 CSV."
+        case .unsupportedEncoding: return "Unsupported file encoding. Please use a UTF-8 encoded file."
         case .partialUpload(let uploadedRows, let message):
             return "Partial upload (\(uploadedRows) rows): \(message)"
-        case .emptyFile: return "The selected CSV file is empty."
+        case .emptyFile: return "The selected file is empty."
         case .unknown(let message): return message
         }
     }

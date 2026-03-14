@@ -1,15 +1,33 @@
 import AppKit
 import Foundation
 
-final class ImportCoordinator {
-    private let authManager: AuthManager
-    private let parser: CSVParser
-    private let sheetsService: SheetsService
+protocol ImportCoordinating {
+    func runImport(
+        request: ImportRequest,
+        autoOpenBrowser: Bool,
+        progress: @escaping (Double, String) async -> Void
+    ) async throws -> ImportResult
+}
 
-    init(authManager: AuthManager, parser: CSVParser = CSVParser(), sheetsService: SheetsService = SheetsService()) {
+final class ImportCoordinator: ImportCoordinating {
+    private let authManager: AccessTokenProviding
+    private let csvParser: CSVParsing
+    private let xlsxParser: XLSXParsing
+    private let sheetsService: SheetsServicing
+    private let openURL: (URL) -> Void
+
+    init(
+        authManager: AccessTokenProviding,
+        csvParser: CSVParsing = CSVParser(),
+        xlsxParser: XLSXParsing = XLSXParser(),
+        sheetsService: SheetsServicing = SheetsService(),
+        openURL: @escaping (URL) -> Void = { NSWorkspace.shared.open($0) }
+    ) {
         self.authManager = authManager
-        self.parser = parser
+        self.csvParser = csvParser
+        self.xlsxParser = xlsxParser
         self.sheetsService = sheetsService
+        self.openURL = openURL
     }
 
     func runImport(
@@ -21,31 +39,50 @@ final class ImportCoordinator {
         await progress(0.02, "Authenticating with Google")
         let accessToken = try await authManager.validAccessToken()
 
-        await progress(0.1, "Reading CSV")
-        let data = try Data(contentsOf: request.sourceURL)
-        let delimiter = request.delimiterOverride ?? ","
-        let rows = try parser.parse(data: data, delimiter: delimiter)
+        let rows: [[String]]
+        if request.sourceURL.pathExtension.lowercased() == "xlsx" {
+            await progress(0.1, "Reading Excel file")
+            rows = try xlsxParser.parse(url: request.sourceURL)
+        } else {
+            await progress(0.1, "Reading CSV")
+            let data = try Data(contentsOf: request.sourceURL)
+            let delimiter = request.delimiterOverride ?? ","
+            rows = try csvParser.parse(data: data, delimiter: delimiter)
+        }
         let title = request.customTitle ?? request.sourceURL.deletingPathExtension().lastPathComponent
+        let maxColumns = rows.map(\.count).max() ?? 1
 
         await progress(0.3, "Creating spreadsheet")
-        let sheet = try await sheetsService.createSpreadsheet(title: title, accessToken: accessToken)
+        let sheet = try await sheetsService.createSpreadsheet(
+            title: title,
+            minimumRows: rows.count,
+            minimumColumns: maxColumns,
+            accessToken: accessToken
+        )
 
         let totalRows = max(rows.count, 1)
         await progress(0.35, "Uploading rows")
-        try await sheetsService.appendRows(
-            spreadsheetID: sheet.id,
-            rows: rows,
-            accessToken: accessToken,
-            onBatchUploaded: { uploaded in
-                Task {
-                    let value = 0.35 + (Double(uploaded) / Double(totalRows)) * 0.6
-                    await progress(min(value, 0.95), "Uploading rows (\(uploaded)/\(totalRows))")
+        do {
+            try await sheetsService.appendRows(
+                spreadsheetID: sheet.id,
+                rows: rows,
+                accessToken: accessToken,
+                onBatchUploaded: { uploaded in
+                    Task {
+                        let value = 0.35 + (Double(uploaded) / Double(totalRows)) * 0.6
+                        await progress(min(value, 0.95), "Uploading rows (\(uploaded)/\(totalRows))")
+                    }
                 }
+            )
+        } catch {
+            if autoOpenBrowser {
+                openURL(sheet.url)
             }
-        )
+            throw error
+        }
 
         if autoOpenBrowser {
-            NSWorkspace.shared.open(sheet.url)
+            openURL(sheet.url)
         }
         await progress(1.0, "Done")
 
